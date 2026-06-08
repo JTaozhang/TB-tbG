@@ -397,4 +397,54 @@ contains
         write(*, '(A,1X,F8.3,A)') "[IO] Done! Time elapsed (s): ", t_end - t_start
     end subroutine writeDOS
 
+    subroutine writeWavefunc(wavef, filename, istart, iend)
+        use constants, only: prec, f_eigvec, iband, nbands, nions
+        complex(prec), intent(in) :: wavef(:,:,:)
+        character(len=64), intent(in), optional :: filename
+        integer, intent(in), optional :: istart, iend
+        character(len=64) :: fout
+        integer :: unit, nkpts, ib_start, ib_end
+        integer :: ik, ib, i
+        real :: t_start, t_end
+
+        call cpu_time(t_start)
+
+        if (present(filename)) then
+            fout = filename
+        else
+            fout = f_eigvec
+        end if
+
+        nkpts = size(wavef, 3)
+        if (present(istart)) then
+            ib_start = istart
+        else
+            ib_start = iband(1)
+        end if
+        if (present(iend)) then
+            ib_end = iend
+        else
+            ib_end = iband(2)
+        end if
+
+        write(*,'(A,1X,A)') "[IO] Writing wavefunctions to file:", trim(fout)
+        unit = 600
+        open(unit, file=fout, status='replace', action='write')
+            write(unit,'(A,I8,A,I8,A,I8)') '# Wavefunctions: nkpts=', nkpts, ' nions=', nions, ' bands=', ib_start, ib_end
+            do ik = 1, nkpts
+                do ib = ib_start, ib_end
+                    write(unit,'(A,I6,1X,I6)') '# kpoint', ik, ib
+                    do i = 1, nions
+                        write(unit,'(2F18.12)') real(wavef(i, ib-ib_start+1, ik)), aimag(wavef(i, ib-ib_start+1, ik))
+                    end do
+                    write(unit,*)
+                end do
+            end do
+        close(unit)
+
+        call cpu_time(t_end)
+        write(*, '(A,1X,F8.3)') "[IO] Done! Time elapsed (s): ", t_end - t_start
+
+    end subroutine writeWavefunc
+
 end module ioutils

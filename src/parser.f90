@@ -93,6 +93,10 @@ contains
                             read(line,*,iostat=io) tmp,timer_mpi
                         case('TDEBUG')
                             read(line,*,iostat=io) tmp,timer_debug
+                        case('EIGNVEC')
+                            read(line,*,iostat=io) tmp,eigenvec_out
+                        case('FEIGENVEC')
+                            read(line,*,iostat=io) tmp,f_eigvec
                         case('MODEL')
                             read(line,*,iostat=io) tmp,model_type
                         case('WRITEM')

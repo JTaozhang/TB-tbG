@@ -26,7 +26,7 @@ contains
     end subroutine init_mpi
 
     subroutine init_POSCAR_mpi(filename)
-        use constants, only: rank,nions,nbands,iband,basis,basis_rec,position_frac,position_cart,f_poscar,timer_mpi
+        use constants, only: rank,nions,nbands,iband,basis,basis_rec,position_frac,position_cart,f_poscar,timer_mpi,eigenvec_out,f_eigvec
         use ioutils, only: parsePOSCAR
         integer :: ierr
         character(len=*), intent(in), optional :: filename
@@ -60,6 +60,8 @@ contains
         end if
         call MPI_Bcast(position_frac, size(position_frac), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
         call MPI_Bcast(position_cart, size(position_cart), MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
+        call MPI_Bcast(eigenvec_out, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ierr)
+        call MPI_Bcast(f_eigvec, len(f_eigvec), MPI_CHARACTER, 0, MPI_COMM_WORLD, ierr)
 
         if (rank == 0 .and. timer_mpi) then
             call cpu_time(t_end)
@@ -274,14 +276,15 @@ subroutine calculate_klist_mpi(klist,eig,wavef,tag)
 end subroutine calculate_klist_mpi
 
 subroutine calculate_band_mpi(kpath, nk)
-    use constants, only: prec,kpath_default,rank,kpt_select,f_kpoint,nk_path
-    use ioutils, only: readKPOINTS,writeBand,writeLabels
+    use constants, only: prec,kpath_default,rank,kpt_select,f_kpoint,nk_path,eigenvec_out,f_eigvec,nions,nbands,iband
+    use ioutils, only: readKPOINTS,writeBand,writeLabels,writeWavefunc
     real(prec), allocatable, optional:: kpath(:,:,:)
     integer, optional :: nk
     real(prec), allocatable:: paths(:,:,:),klist_frac(:,:),klist_cart(:,:),xlist(:),lable_positions(:),eig(:,:)
     real(prec), allocatable:: klist_tmp(:,:)
     character(len=3), allocatable :: labels(:)
     integer :: ierr,nkpts,nk_local,i,npath
+    complex(prec), allocatable :: wavef(:,:,:)
     
     if (rank == 0) then
         if (present(kpath)) then
@@ -313,10 +316,18 @@ subroutine calculate_band_mpi(kpath, nk)
     if ( .not. allocated(klist_frac)) allocate(klist_frac(nkpts,3))
     call MPI_Bcast(klist_frac, nkpts*3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, ierr)
 
-    call calculate_klist_mpi(klist_frac,eig)
+    if (eigenvec_out) then
+        call calculate_klist_mpi(klist_frac, eig, wavef)
+    else
+        call calculate_klist_mpi(klist_frac, eig)
+    end if
 
     if (rank == 0) then
         call writeBand(xlist, eig)
+        if (eigenvec_out) then
+            call writeWavefunc(wavef)
+            if (allocated(wavef)) deallocate(wavef)
+        end if
         call writeLabels(labels, lable_positions)
     end if
 end subroutine calculate_band_mpi

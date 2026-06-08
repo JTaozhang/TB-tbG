@@ -59,6 +59,7 @@ The code is written in modern Fortran with modular design, separating physical m
    JOB B
    FPOSCAR cont.vasp
    FEIGEN tb_band.dat
+   EIGNVEC .false.
    FKPOINTS KPOINTS.band
    NCACHE 1
    ```
@@ -105,6 +106,7 @@ mpirun -n 4 ./tbsolver
 ### Output Files
 Depending on the job type, the program produces:
 - **Band structure**: File specified by `FEIGEN` (default `tb_band.dat`) contains k‑points along the path and corresponding eigenvalues.
+- **Wavefunctions / eigenvectors**: If `EIGNVEC .true.` is set, the program also writes the eigenvectors (wavefunctions) to the file specified by `FEIGENVEC` (default `tb_wavef.dat`). The output follows the selected band range defined by `IBAND`.
 - **DOS results**: File specified by `FDOS` (default `tb_dos.dat`) contains energy and DOS columns. With `DOS_NORMALIZE .true.`, the DOS is divided by the number of k points and is reported in states/eV per cell.
 - **EELS results**: Loss function and related quantities are written to files with names derived from the `QTAG` keyword.
 
@@ -117,6 +119,8 @@ All keywords are read by the parser in `src/parser.f90`. Lines starting with `!`
 | **JOB** | `B`, `D`, or `E` | Type of calculation:<br>`B` – Band structure<br>`D` – Density of States (DOS)<br>`E` – Electron Energy Loss Spectroscopy (EELS) |
 | **FPOSCAR** | `<filename>` | Path to the VASP‑format POSCAR file (default: `cont.vasp`) |
 | **FEIGEN** | `<filename>` | Output file for band eigenvalues (default: `tb_band.dat`). Also enables band‑structure writing. |
+| **EIGNVEC** | `<logical>` | Whether to write eigenvectors / wavefunctions for band calculations (default: `.false.`). When enabled, wavefunctions are saved together with the selected band range. |
+| **FEIGENVEC** | `<filename>` | Output file for eigenvector / wavefunction data (default: `tb_wavef.dat`). |
 | **FDOS** | `<filename>` | Output file for DOS data (default: `tb_dos.dat`). |
 | **FKPOINTS** | `<filename>` | VASP‑format file containing k‑point definitions (default: `KPOINTS`). Line mode is used for band paths; Gamma or Monkhorst-Pack mesh mode is used for DOS and EELS meshes. |
 | **FWANNIER** | `<filename>` | Path to the Wannier90 input file (default: `wannier90`). If present, sets model type to Wannier (`wan`). |
@@ -168,9 +172,20 @@ JOB B
 FPOSCAR cont.vasp
 FKPOINTS KPOINTS.band
 FEIGEN tb_band.dat
+EIGNVEC .true.
+FEIGENVEC tb_wavef.dat
 IBAND 1 20
 NCACHE 1
 ```
+
+The wavefunction output file is plain text. It is grouped by k point and band:
+- Header line: `# Wavefunctions: nkpts=... nions=... bands=...`
+- For each block: a comment line `# kpoint <ik> <band>`
+- Then `nions` lines, each containing two columns:
+   - real part of the coefficient
+   - imaginary part of the coefficient
+
+This format is convenient for post-processing in Python, MATLAB, or Fortran.
 
 Example `KPOINTS.band`:
 ```plaintext

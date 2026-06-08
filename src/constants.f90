@@ -35,11 +35,13 @@ module constants
     logical :: kpt_select
     logical :: job_band
     logical :: write_band
+    logical :: eigenvec_out
     logical :: write_matrix
     character(len=3) :: model_type
     character(len=64) :: f_input
     character(len=64) :: f_poscar
     character(len=64) :: f_eig
+    character(len=64) :: f_eigvec
     character(len=64) :: f_kpoint
     character(len=64) :: f_wannier
     character(len=64) :: f_matrix
@@ -64,6 +66,7 @@ contains
         f_input='input.in'
         f_poscar='cont.vasp'
         f_eig='tb_band.dat'
+        f_eigvec='tb_wavef.dat'
         f_kpoint='KPOINTS'
         f_matrix='tb_eels.mat'
         f_eels='tb_eels.dat'
@@ -74,6 +77,7 @@ contains
         q_tag = "D"
         delta = 1e-3
         calc_iqr = .false.
+        eigenvec_out = .false.
         model_type = "tbg"
         f_wannier = 'wannier90'
         eels_mode = 0
