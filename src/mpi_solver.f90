@@ -285,30 +285,45 @@ subroutine calculate_band_mpi(kpath, nk)
     character(len=3), allocatable :: labels(:)
     integer :: ierr,nkpts,nk_local,i,npath
     complex(prec), allocatable :: wavef(:,:,:)
+    logical :: path_mode
     
+    path_mode = .true.
     if (rank == 0) then
         if (present(kpath)) then
             paths = kpath
         else
             if (kpt_select) then
-                call readKPOINTS(f_kpoint,klist_tmp)
-                npath = size(klist_tmp,1)/2
-                allocate(paths(npath,2,3))
-                do i = 1, npath
-                    paths(i,1,:) = klist_tmp(2*i-1,:)
-                    paths(i,2,:) = klist_tmp(2*i,:)
-                end do
+                call readKPOINTS(f_kpoint,klist_tmp,path_mode)
+                if (path_mode) then
+                    npath = size(klist_tmp,1)/2
+                    allocate(paths(npath,2,3))
+                    do i = 1, npath
+                        paths(i,1,:) = klist_tmp(2*i-1,:)
+                        paths(i,2,:) = klist_tmp(2*i,:)
+                    end do
+                else
+                    allocate(klist_frac(size(klist_tmp,1),3))
+                    klist_frac = klist_tmp
+                    nkpts = size(klist_frac,1)
+                    allocate(xlist(nkpts))
+                    do i = 1, nkpts
+                        xlist(i) = real(i-1, prec)
+                    end do
+                    write(*,'(A,I0,A)') '[Main] Using explicit KPOINTS list with ', nkpts, ' points.'
+                end if
             else
                 call kpath_default(paths)
             end if
         end if
-        if (present(nk)) then 
-            nk_local = nk
-        else 
-            nk_local = nk_path
+        if (path_mode .or. .not. allocated(klist_frac)) then
+            if (present(nk)) then 
+                nk_local = nk
+            else 
+                nk_local = nk_path
+            end if
+            call generate_kpath(paths, nk_local, klist_frac, klist_cart, xlist, labels, lable_positions)
+            nkpts = size(klist_frac,1)
         end if
-        call generate_kpath(paths, nk_local, klist_frac, klist_cart, xlist, labels, lable_positions)
-        nkpts = size(klist_frac,1)
     end if
 
 
@@ -328,7 +343,9 @@ subroutine calculate_band_mpi(kpath, nk)
             call writeWavefunc(wavef)
             if (allocated(wavef)) deallocate(wavef)
         end if
-        call writeLabels(labels, lable_positions)
+        if (allocated(labels) .and. allocated(lable_positions)) then
+            call writeLabels(labels, lable_positions)
+        end if
     end if
 end subroutine calculate_band_mpi
 

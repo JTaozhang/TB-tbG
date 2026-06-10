@@ -105,7 +105,7 @@ contains
 
     end subroutine parsePOSCAR
 
-    subroutine readKPOINTS(filename,klist_frac)
+    subroutine readKPOINTS(filename,klist_frac,is_path_mode)
         use constants, only:prec,f_kpoint
         type :: node
             real(prec) :: data(3)
@@ -113,11 +113,13 @@ contains
         end type node
         character(len=64), optional, intent(in):: filename
         real(prec), allocatable,optional, intent(out) :: klist_frac(:,:)
+        logical, optional, intent(out) :: is_path_mode
         character(len=64) :: fin,mode,tag
         character(len=128) :: line
-        integer :: i,unit,nk(3),nkpts
+        integer :: i,unit,nk(3),nkpts,declared_nkpts,io
         type(node), pointer :: head, current
-        real(prec) :: values(3)
+        real(prec) :: values(3), weight
+        logical :: path_mode, cartesian_input
 
         unit = 102
 
@@ -128,12 +130,16 @@ contains
         end if
 
         nkpts = 0
+        declared_nkpts = 0
+        path_mode = .false.
+        cartesian_input = .false.
         open(unit, file=fin, status='old', action='read')
             read(unit, '(A)') line
-            read(unit, '(I)') nk(1)
+            read(unit, *) nk(1)
             if (nk(1) == 0) then
                 ! determine k-mesh automatically
                 read(unit, '(A)') mode
+                mode = adjustl(mode)
                 read(unit, *) nk
                 if (mode(1:1)=='G' .or. mode(1:1)=='g') then
                     call generate_mesh_gamma(nk,klist_frac)
@@ -142,14 +148,22 @@ contains
                 end if
             else 
                 read(unit, '(A)') mode
+                mode = adjustl(mode)
                 if (mode(1:1)=='L' .or. mode(1:1)=='l') then
+                    path_mode = .true.
                     nk_path = nk(1)
                     read(unit, '(A)') tag
+                    tag = adjustl(tag)
                     nullify(head)
                     do while (.not. eof(unit))
                         read(unit, '(A)') line
                         if (len_trim(line)==0) cycle ! skip empty lines
-                        read(line,*) values
+                        if (line(1:1)=='!' .or. line(1:1)=='#' .or. line(1:1)=='/') cycle
+                        read(line,*,iostat=io) values
+                        if (io /= 0) cycle
+                        if (tag(1:1)=='C' .or. tag(1:1)=='c') then
+                            values = k2frac(values)
+                        end if
                         allocate(current)
                         current%data = values
                         current%next => head
@@ -157,6 +171,34 @@ contains
                         nkpts = nkpts + 1
                         
                     end do
+                else
+                    declared_nkpts = nk(1)
+                    cartesian_input = (mode(1:1)=='C' .or. mode(1:1)=='c')
+                    nullify(head)
+                    do while (.not. eof(unit))
+                        read(unit, '(A)', iostat=io) line
+                        if (io /= 0) exit
+                        if (len_trim(line)==0) cycle
+                        if (line(1:1)=='!' .or. line(1:1)=='#' .or. line(1:1)=='/') cycle
+                        read(line,*,iostat=io) values(1), values(2), values(3), weight
+                        if (io /= 0) then
+                            read(line,*,iostat=io) values
+                            if (io /= 0) cycle
+                            weight = 1.0_prec
+                        end if
+                        if (cartesian_input) then
+                            values = k2frac(values)
+                        end if
+                        allocate(current)
+                        current%data = values
+                        current%next => head
+                        head => current
+                        nkpts = nkpts + 1
+                        if (declared_nkpts > 0 .and. nkpts >= declared_nkpts) exit
+                    end do
+                    if (declared_nkpts > 0 .and. nkpts /= declared_nkpts) then
+                        write(*,'(A,1X,I0,1X,A,1X,I0)') '[IO] Warning: declared k-point count is', declared_nkpts, 'but read', nkpts
+                    end if
                 end if
             end if 
         close(unit)
@@ -175,6 +217,8 @@ contains
                 deallocate(current)
             end do
         end if
+
+        if (present(is_path_mode)) is_path_mode = path_mode
 
     end subroutine readKPOINTS
 
