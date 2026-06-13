@@ -44,6 +44,7 @@ module constants
     character(len=64) :: f_eigvec
     character(len=64) :: f_kpoint
     character(len=64) :: f_wannier
+    character(len=64) :: f_hr
     character(len=64) :: f_matrix
     character(len=64) :: f_eels
     character(len=64) :: f_dos
@@ -62,6 +63,7 @@ contains
         kpt_select = .false.
         job_band = .false.
         write_band = .false.
+        write_hr = .false.
         write_matrix = .false.
         f_input='input.in'
         f_poscar='cont.vasp'
@@ -69,6 +71,7 @@ contains
         f_eigvec='tb_wavef.dat'
         f_kpoint='KPOINTS'
         f_matrix='tb_eels.mat'
+        f_hr='tb_hr.dat'
         f_eels='tb_eels.dat'
         f_dos='tb_dos.dat'
         nk_path = 10

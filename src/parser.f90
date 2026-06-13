@@ -43,6 +43,10 @@ contains
                             job_band = .true.
                             write_band = .true.
                             read(line,*,iostat=io) tmp,f_eig
+                        case ('WHR')
+                            read(line,*,iostat=io) tmp,write_hr
+                        case ('FHR')
+                            read(line,*,iostat=io) tmp,f_hr
                         case ('FKPOINTS')
                             kpt_select = .true.
                             read(line,*,iostat=io) tmp,f_kpoint

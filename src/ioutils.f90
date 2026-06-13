@@ -491,4 +491,73 @@ contains
 
     end subroutine writeWavefunc
 
+    subroutine writeHamiltonianList(filename)
+        use constants, only: prec, nions, position_frac, basis, onsite, r_c, f_hr, timer_cpu
+        use tbmodel, only: tbg_hopping
+        character(len=64), intent(in), optional :: filename
+        character(len=64) :: fout
+        integer :: unit, i, j, nx, ny, nz
+        integer :: nxmax, nymax, nzmax
+        real(prec) :: a_len(3), R_frac(3), R_cart(3)
+        real(prec) :: tol
+        real :: t_start, t_end
+        complex(prec) :: hij
+
+        tol = 1.0e-12_prec
+        if (present(filename)) then
+            fout = filename
+        else
+            fout = f_hr
+        end if
+
+        if (timer_cpu) then
+            call cpu_time(t_start)
+            write(*,'(A,1X,A,1X,$)') '[IO] Writing real-space Hamiltonian list to', trim(fout)
+        end if
+
+        a_len(1) = norm2(basis(1,:))
+        a_len(2) = norm2(basis(2,:))
+        a_len(3) = norm2(basis(3,:))
+        nxmax = ceiling(r_c / max(a_len(1), tol)) + 1
+        nymax = ceiling(r_c / max(a_len(2), tol)) + 1
+        nzmax = ceiling(r_c / max(a_len(3), tol)) + 1
+
+        unit = 700
+        open(unit, file=fout, status='replace', action='write')
+            write(unit,'(A)') '# TB-tbG real-space Hamiltonian list'
+            write(unit,'(A,I0)') '# nions = ', nions
+            write(unit,'(A,F20.12)') '# cutoff_r_c = ', r_c
+            write(unit,'(A)') '# columns: i j R1_frac R2_frac R3_frac Re(H_ij) Im(H_ij)'
+
+            do i = 1, nions
+                do j = 1, nions
+                    do nx = -nxmax, nxmax
+                        do ny = -nymax, nymax
+                            do nz = -nzmax, nzmax
+                                R_frac = position_frac(j,:) - position_frac(i,:) + &
+                                         [real(nx,prec), real(ny,prec), real(nz,prec)]
+                                R_cart = matmul(transpose(basis), R_frac)
+                                if (norm2(R_cart) <= r_c + tol) then
+                                    if (i == j .and. nx == 0 .and. ny == 0 .and. nz == 0) then
+                                        hij = cmplx(onsite, 0.0_prec, kind=prec)
+                                    else if (norm2(R_cart) > tol) then
+                                        hij = cmplx(tbg_hopping(R_cart), 0.0_prec, kind=prec)
+                                    else
+                                        cycle
+                                    end if
+                                    write(unit,'(2I8,3F20.12,2F20.12)') i, j, R_frac, real(hij), aimag(hij)
+                                end if
+                            end do
+                        end do
+                    end do
+                end do
+            end do
+        close(unit)
+
+        if (timer_cpu) then
+            call cpu_time(t_end)
+            write(*,'(A,1X,F8.3)') 'Done! Time elapsed (s):', t_end - t_start
+        end if
+    end subroutine writeHamiltonianList
+
 end module ioutils

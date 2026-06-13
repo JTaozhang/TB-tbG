@@ -26,8 +26,8 @@ contains
     end subroutine init_mpi
 
     subroutine init_POSCAR_mpi(filename)
-        use constants, only: rank,nions,nbands,iband,basis,basis_rec,position_frac,position_cart,f_poscar,timer_mpi,eigenvec_out,f_eigvec
-        use ioutils, only: parsePOSCAR
+        use constants, only: rank,nions,nbands,iband,basis,basis_rec,position_frac,position_cart,f_poscar,timer_mpi,eigenvec_out,f_eigvec,write_hr,f_hr
+        use ioutils, only: parsePOSCAR, writeHamiltonianList
         integer :: ierr
         character(len=*), intent(in), optional :: filename
         real :: t_start,t_end
@@ -45,6 +45,10 @@ contains
         if (rank == 0 .and. timer_mpi) then
             call cpu_time(t_start)
             write(*, '(4X,A,1X,$)') "[MPI] Updating POSCAR data to all MPI processes ..."
+        end if
+
+        if (rank == 0 .and. write_hr) then
+            call writeHamiltonianList(f_hr)
         end if
 
         call MPI_Bcast(nions, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
